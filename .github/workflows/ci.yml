@@ -1,0 +1,26 @@
+name: Linux C++ baseline
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [g++, clang++]
+        configuration: [Release, Debug]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >-
+          cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+          -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+          -DENABLE_SANITIZERS=${{ matrix.configuration == 'Debug' && 'ON' || 'OFF' }}
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Exercise generated replay and benchmark
+        run: |
+          ./build/generate_orders build/generated.orders 10000 42
+          ./build/replay build/generated.orders > build/replay.txt
+          ./build/benchmark build/generated.orders
+          python3 bench/experiments.py build/generated.orders --runs 1 --reserve 10000
